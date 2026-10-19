@@ -1,0 +1,24 @@
+SSI
+user space shadow mem inside the fucking each insn
+* ntskrnl.exe[if this is it. - it isnt!] args
+time for SYP to reconstruct into a binary, so it can be passed to ghidra
+
+pe parser, this proejct - pybind11
+qt app dbg - run, load syms
+DEBUGSERVER - uc_start, syscall
+ELF parser
+
+
+TLS
+syscall - cocksucking mem_write overwrites all the shit
+32bit PE's - C++-ie shit to get stuff around NT_HEADERS32
+	magic,
+	iat thunkdata32/64;importordinalflag32/64,	#
+	rel-IMAGE_REL_BASED_HIGHLOW(__u32*);		# FUCK PE's
+	TLS;										# FUCK PE's
+	SEH/UNWIND_INFO;							# FUCK PE's
+	; 32bit-teb=fs:[0x18]; peb=fs[0x30];		# FUCK PE's
+	TEB/PEB structs;							# FUCK PE's
+	_LIST_ENTRY32_								# FUCK PE's
+	rename to PE32_IMAGE						#
+	multiple PE_LOADs
