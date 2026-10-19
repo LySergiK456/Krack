@@ -1,0 +1,177 @@
+
+
+// // struct char_ptr_t {
+// // 	char	*value;
+// // 	constexpr char_ptr_t(void *x) : value{reinterpret_cast<char*>(x)} {}
+// // };
+
+// // struct pINSN : char_ptr_t {
+// // 	char	*&v{this->value};
+	
+// // 	constexpr pINSN() : char_ptr_t(0) {}
+// // 	constexpr pINSN(const pINSN& pinsn)
+// // 		: char_ptr_t{0} {}
+
+// // 	template<typename E=char*>
+// // 	constexpr E&& operator=(E ptr) {
+// // 		return reinterpret_cast<E>(this->v=reinterpret_cast<char*>(ptr));
+// // 	}
+// // 	constexpr pINSN& operator=(const pINSN& ptr) {
+// // 		this->v = ptr.v;
+// // 		return dynamic_cast<pINSN&>(*this);
+// // 	}
+
+// // 	constexpr pINSN&& operator=(const pINSN&& ptr) {
+// // 		this->v = ptr.v;
+// // 		return dynamic_cast<pINSN&&>(*this);
+// // 	}
+// // };
+
+// // using insz_pair_t = std::pair<pINSN, __u8>;
+
+// // struct tINSZ : insz_pair_t {
+// // 	__u8 &	size{std::get<__u8>(*this)};
+// // 	pINSN&	insn{std::get<pINSN>(*this)};
+
+// // 	constexpr tINSZ()
+// // 		: insz_pair_t(pINSN(), static_cast<__u8>(0)) {}
+
+// // 	constexpr tINSZ(const tINSZ& ref) : tINSZ() {
+// // 		*this = std::move(ref);
+// // 	}
+
+// // 	constexpr tINSZ(const tINSZ&& ref) {
+// // 		*this = std::move(ref);
+// // 	}
+
+// // 	constexpr tINSZ&& operator=(const tINSZ& insz) {
+// // 		insn = std::get<pINSN>(insz);
+// // 		size = std::get<__u8>(insz);
+// // 		return dynamic_cast<tINSZ&&>(*this);
+// // 	}
+// // };
+// #include <windows.h>
+// #include <assert.h>
+// #include "../../include/rel/rel_insn.hh"
+// extern "C" {
+// 	#include "../../include/rel/rel_yayo.h"
+// };
+
+// namespace SlitYerPE {
+// 	SYP_HEADER *SYP::OrigVAtoPX(__u64 addr) {
+// 		for (auto& px : ll_px)
+// 			if (_contain_(px->virt_addr, px->sz, addr))
+// 				return px.get();
+
+// 		return nullptr;
+// 	}
+
+// 	bool SYP::insn_resides(__u64 addr, char *buf, __u8 len) {
+// 		auto hdr = OrigVAtoPX(addr);
+// 		if (!hdr) return false;
+
+// 		for (auto& p : hdr->e_vec) {
+// 			if (!strncmp(p.insn.v, buf, len))
+// 				return true;
+// 		}
+// 		return false;
+// 	}
+// };
+
+// SYP_STATUS
+// SYP_API
+// SlitYerPE::SYP::ins_insn(
+// 	__u64 addr,
+// 	char *buf,
+// 	std::shared_ptr<PE64_IMAGE> image)
+// {
+// 	if (!buf || !addr || (int)addr == -1u)
+// 		return SYP_NULLPTR;
+
+// 	auto& insn = d.disass(buf);
+
+// 	if (!has_img(image.get()))
+// 	{	/* Import the image shared_ptr */
+// 		img.push_back(image);
+// 	}
+	
+// 	if (insn_resides(addr, buf, insn.size()))
+// 	{	/* Insn exists within the ll_px*/
+// 		return SYP_OK;
+// 	}
+
+// 	/** 
+// 	 * Insert the insn
+// 	**/
+// 	SYP_HEADER *px = OrigVAtoPX(addr);
+// 	__u64 virt	= asrt_insn_base(addr);
+// 	__u64 size	= asrt_insn_size(addr, insn.size());
+// 	if (!px) {
+// 		px = push_header(SYP_HEADER(virt, size));
+// 	}
+// 	assert(!!px);
+	
+// 	tINSZ e;
+// 	e.size = insn.size();
+// 	e.insn = reinterpret_cast<char*>(px->dat + (addr - px->virt_addr));
+// 	memcpy(e.insn.v, buf, insn.size());
+
+// 	px->e_vec.push_back(e);
+// 	return SYP_OK;
+// }
+
+// void SlitYerPE::SYP::MakeDosHeader() {
+// 	dos = (IMAGE_DOS_HEADER){
+// 		.e_magic = 0x5A4D,
+// 		.e_lfanew = sizeof(IMAGE_DOS_HEADER),	// + dos_stub.size;
+// 	};
+// }
+
+// void SlitYerPE::SYP::MakeNtHeaders(SYP_IMAGE_TYPE t) {
+// 	nt.Signature = IMAGE_NT_SIGNATURE;	/* 0x4550 */
+// 	nt.FileHeader = (IMAGE_FILE_HEADER){
+// 		.Machine				= 0x8664,
+// 		.SizeOfOptionalHeader	= sizeof(IMAGE_OPTIONAL_HEADER),
+// 	};
+
+// 	switch (t) {
+// 		case SYP_IMAGE_TYPE::EXE:
+// 			nt.FileHeader.Characteristics = IMAGE_FILE_EXECUTABLE_IMAGE;
+// 			break;
+// 		case SYP_IMAGE_TYPE::DLL:
+// 			nt.FileHeader.Characteristics = IMAGE_FILE_DLL;
+// 			break;
+// 	}
+
+// 	nt.OptionalHeader = (IMAGE_OPTIONAL_HEADER){
+// 		.Magic					= 0x20B, /* PE32+ */
+// 		.MajorLinkerVersion		= 14,
+// 		.MinorLinkerVersion		= 20,
+// 		.ImageBase				= 0x1776000,
+// 		.SectionAlignment		= PAGE_SIZE,
+// 		.FileAlignment 			= 0x200,
+// 		.MajorSubsystemVersion	= 10,
+// 		.MinorSubsystemVersion	= 0,
+// 		.SizeOfStackReserve		= 0x40000,
+// 		.SizeOfStackCommit		= 0x1000,
+// 		.SizeOfHeapReserve		= 0x100000,
+// 		.SizeOfHeapCommit		= 0x1000,
+// 	};
+// }
+
+// __u64 SlitYerPE::SYP::asrt_insn_base(__u64 addr) {
+// 	return PAGE_ALIGN_DOWN(addr);
+// }
+// __u64 SlitYerPE::SYP::asrt_insn_size(__u64 addr, __u64 size) {
+// 	return (((addr&PAGE_MASK) + size) > 0x1000) ? PAGE_SIZE*2 : PAGE_SIZE;
+// }
+
+// bool SlitYerPE::SYP::has_img(PE64_IMAGE *img_ptr) {
+// 	for (auto& lmg : img) if (lmg.get() == img_ptr) return true;
+// 	return false;
+// }
+
+// SYP_HEADER *SlitYerPE::SYP::push_header(SYP_HEADER&& hdr) {
+// 	ll_px.push_back(std::make_shared<SYP_HEADER>(new SYP_HEADER{hdr}));
+// 	return ll_px.back().get();
+// }
