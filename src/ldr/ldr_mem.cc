@@ -10,16 +10,31 @@ template <typename P> static int _write_value(P *addr, auto v);
 static __u64 heap_off = 0;
 namespace SlitYerPE {
 __u64 Ldr::uc_malloc(__u64 size) {
+    if (!size) return 0;
+
     __u64 virt = HEAP_ADDR + heap_off;
-    heap_off += size;
+    const __u64 end = virt + size;
+    const __u64 next_off = heap_off + size;
 
-    /* mmap beforehand */
-    mmap(PAGE_ALIGN_DOWN(virt), PAGE_ALIGN_UP(size), UC_PROT_RW);
-    // mmemcpy(virt, xmalloc(size), size);
+    if (end < virt || next_off < heap_off)
+        return 0;
 
+    const __u64 map_begin = PAGE_ALIGN_UP(virt);
+    const __u64 map_end = PAGE_ALIGN_UP(end);
+    if (map_begin < virt || map_end < end || map_end < map_begin)
+        return 0;
+
+    if (map_end > map_begin) {
+        uc_err err = mmap(map_begin, map_end - map_begin, UC_PROT_RW);
+        if (!_uc_ok(err))
+            return 0;
+    }
+
+    heap_off = next_off;
+ 
     return virt;
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 template uc_err Ldr::mwrite<void *>(__u64 addr, void *v);
@@ -43,71 +58,104 @@ template uc_err Ldr::mcopy<__u16>(__u64 addr, __u16 v);
 template uc_err Ldr::mcopy<short>(__u64 addr, short v);
 template uc_err Ldr::mcopy<__u8>(__u64 addr, __u8 v);
 template uc_err Ldr::mcopy<char>(__u64 addr, char v);
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
-void Ldr::virt_map_fxd(__u64 addr, __u64 size, __u32 prot = PAGE_READWRITE) {
-    __u64 end = addr + size;
-
-    for (__u64 cur = addr; cur < end;) {
-        MEMORY_BASIC_INFORMATION mbi{};
-
-        if (VirtualQuery(reinterpret_cast<void *>(cur), &mbi, sizeof(mbi)) !=
-            sizeof(mbi))
+    void Ldr::virt_map_fxd(__u64 addr, __u64 size, __u32 prot) {
+        constexpr __u64 GRAN = 0x10000;
+        const __u64 end = addr + size;
+        if (!size || end < addr)
             return;
 
-        __u64 base = reinterpret_cast<__u64>(mbi.BaseAddress);
-        __u64 next = base + mbi.RegionSize;
-        if (next <= cur)
-            return;
+        for (__u64 cur = addr; cur < end;) {
+            MEMORY_BASIC_INFORMATION mbi{};
 
-        if (mbi.State != MEM_FREE) {
-            if (!VirtualProtect(mbi.BaseAddress, mbi.RegionSize, prot, NULL))
+            if (VirtualQuery(
+                    reinterpret_cast<void *>(cur),
+                    &mbi,
+                    sizeof(mbi)) != sizeof(mbi))
                 return;
-        } else {
-            if (!VirtualAlloc(reinterpret_cast<void *>(cur), mbi.RegionSize,
-                              MEM_RESERVE | MEM_COMMIT, prot))
+
+            const __u64 region_end =
+                reinterpret_cast<__u64>(mbi.BaseAddress) + mbi.RegionSize;
+
+            const __u64 stop = std::min(end, region_end);
+            if (stop <= cur)
                 return;
-        }
 
-        cur = std::min(next, end);
-    }
-}
+            if (mbi.State == MEM_FREE) {
+                const __u64 base = cur & ~(GRAN - 1);
+                const __u64 alloc_end = (stop + GRAN - 1) & ~(GRAN - 1);
 
-void Ldr::uc_map_fxd(__u64 addr, __u64 size, __u32 prot) {
-    printf("+!!++! %lx %lx\n", addr, size);
-    _defer([] { puts("BYE"); });
-    const __u64 end = addr + size;
-    if (end < addr)
-        return;
+                if (!VirtualAlloc(
+                        reinterpret_cast<void *>(base),
+                        alloc_end - base,
+                        MEM_RESERVE | MEM_COMMIT,
+                        prot))
+                    return;
+            } else if (mbi.State == MEM_RESERVE) {
+                if (!VirtualAlloc(
+                        reinterpret_cast<void *>(cur),
+                        stop - cur,
+                        MEM_COMMIT,
+                        prot))
+                    return;
+            } else if (mbi.State == MEM_COMMIT) {
+                if (!VirtualProtect(
+                        reinterpret_cast<void *>(cur),
+                        stop - cur,
+                        prot,
+                        NULL))
+                    return;
+            }
 
-    for (__u64 cur = addr; cur < end;) {
-
-        auto mapped = Uc::get_map(uc, cur);
-
-        if (!!mapped.begin) {
-            __u64 stop = std::min(end, mapped.end + 1);
-            if (!_uc_ok(uc_mem_protect(uc, cur, stop - cur, prot)))
-                return;
             cur = stop;
-            continue;
         }
-
-        auto next = Uc::get_map_next(uc, cur);
-        __u64 stop = (!!next.begin) ? std::min(end, next.begin) : end;
-
-        if (stop <= cur)
-            return;
-        if (!_uc_ok(uc_mem_map(uc, cur, stop - cur, prot)))
-            return;
-        cur = stop;
     }
-}
-}; // namespace SlitYerPE
+
+    uc_err Ldr::uc_map_fxd(__u64 addr, __u64 size, __u32 prot) {
+        const __u64 end = addr + size;
+        if (!size || (addr & 0xfff) || (size & 0xfff) || end < addr)
+            return UC_ERR_ARG;
+
+        for (__u64 cur = addr; cur < end;) {
+
+            auto mapped = Uc::get_map(uc, cur);
+
+            if (!!mapped.begin) {
+                __u64 stop = std::min(end, mapped.end + 1);
+                if (stop <= cur)
+                    return UC_ERR_ARG;
+
+                uc_err err = uc_mem_protect(uc, cur, stop - cur, prot);
+                if (!_uc_ok(err))
+                    return err;
+
+                cur = stop;
+                continue;
+            }
+
+            auto next = Uc::get_map_next(uc, cur);
+            __u64 stop = (!!next.begin) ? std::min(end, next.begin) : end;
+
+            if (stop <= cur)
+                return UC_ERR_ARG;
+
+            uc_err err = uc_mem_map(uc, cur, stop - cur, prot);
+            if (!_uc_ok(err))
+                return err;
+            cur = stop;
+        }
+        return UC_ERR_OK;
+    }
+};
 
 namespace SlitYerPE {
 uc_err Ldr::mmap(__u64 virt, __u64 size, __u32 p, char *name) {
     assert(!(virt & 0xfff) && !!size);
+    uc_err err = uc_map_fxd(virt, size, p);
+    if (!_uc_okay(err, ok))
+        return err;
 
     auto mem = new mem_map_t(name, virt, size, p);
     assert(!!mem);
@@ -119,8 +167,7 @@ uc_err Ldr::mmap(__u64 virt, __u64 size, __u32 p, char *name) {
     shadow.push_back(sh_mem);
 
     do {
-        uc_map_fxd(virt, size, p);
-        virt_map_fxd(reinterpret_cast<__u64>(sh_mem->addr), size);
+        virt_map_fxd(reinterpret_cast<__u64>(sh_mem->addr), size, sh_mem->perm);
         _zero_memory(sh_mem->addr, sh_mem->size);
     } while (0);
 
@@ -134,16 +181,10 @@ uc_err Ldr::mmap(__u64 virt, __u64 size, __u32 perm) {
 uc_err Ldr::mwrite(__u64 addr, auto v) {
     // using T = std::decay_t<decltype(v)>(v);
     uc_err err{UC_ERR_OK};
-    __u32 perm = Uc::get_map(uc, addr).perms;
-    uc_mem_protect(uc, addr, 0x1000, UC_PROT_RW);
+    static_assert(sizeof(v) <= sizeof(void**));
     err = uc_mem_write(uc, addr, (void *)&v, sizeof(v));
-    if (!_uc_okay(err, ok)) {
-        puts("!!!!!!!!!!!!!!!!!!!!!!");
-        DBG_FMT("%i\n", perm);
-        uc_mem_protect(uc, addr, 0x1000, perm);
+    if (!_uc_okay(err, ok))
         return err;
-    }
-    uc_mem_protect(uc, addr, 0x1000, perm);
 
     auto sh_mem = VAtoShadow(addr);
     if (!sh_mem || !sh_mem->addr)
@@ -198,7 +239,7 @@ uc_err Ldr::mcopy(__u64 virt, auto v) {
 
     return err;
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 shadow_mem_t *Ldr::VAtoShadow(__u64 virt) {
@@ -211,7 +252,7 @@ shadow_mem_t *Ldr::VAtoShadow(__u64 virt) {
     }
     return nullptr;
 }
-}; // namespace SlitYerPE
+};
 
 template <typename P> static int _write_value(P *addr, auto v) {
     // using T = std::decay_t<decltype(v)>(v);
@@ -219,37 +260,34 @@ template <typename P> static int _write_value(P *addr, auto v) {
 
     if (!__wr_init(addr, PAGE_SIZE, &dw))
         return -1;
-    memmove(addr, &v, sizeof(v));
-    // do {
-    // 	if (	typeid(v) == typeid(__u64)
-    // 		||	typeid(v) == typeid(long long)
-    // 		||	typeid(v) == typeid(void*)
-    // 		||	typeid(v) == typeid(void**))
-    // 	{
-    // 		*(void**)addr = *(void**)&v;
-    // 	}
-    // 	else if (	typeid(v) == typeid(int)
-    // 		||		typeid(v) == typeid(__u32))
-    // 	{
-    // 		*(int*)addr = *(int*)&v;
-    // 	}
-    // 	else if (	typeid(v) == typeid(short)
-    // 		||		typeid(v) == typeid(__u16))
-    // 	{
-    // 		*(short*)addr = *(short*)&v;
-    // 	}
-    // 	else if (	typeid(v) == typeid(char)
-    // 		||		typeid(v) == typeid(__u8))
-    // 	{
-    // 		*(char*)addr = *(char*)&v;
-    // 	}
-    // 	else
-    // 	{
-    // 		__u64 sz = sizeof(v);
-    // 		for (__u64 i=sz-1; !!i; i--)
-    // 			((char*)addr)[i] = ((char*)&v)[i];
-    // 	}
-    // } while (0);
+    do {
+    	if (	typeid(v) == typeid(__u64)
+    		||	typeid(v) == typeid(long long)
+    		||	typeid(v) == typeid(void*)
+    		||	typeid(v) == typeid(void**))
+    	{
+    		*(void**)addr = *(void**)&v;
+    	}
+    	else if (	typeid(v) == typeid(int)
+    		||		typeid(v) == typeid(__u32))
+    	{
+    		*(int*)addr = *(int*)&v;
+    	}
+    	else if (	typeid(v) == typeid(short)
+    		||		typeid(v) == typeid(__u16))
+    	{
+    		*(short*)addr = *(short*)&v;
+    	}
+    	else if (	typeid(v) == typeid(char)
+    		||		typeid(v) == typeid(__u8))
+    	{
+    		*(char*)addr = *(char*)&v;
+    	}
+    	else
+    	{
+            memmove(addr, &v, sizeof(v));
+    	}
+    } while (0);
     if (!__wr_exit(addr, PAGE_SIZE, dw))
         return -1;
 
@@ -279,4 +317,4 @@ __u64 Ldr::AllocUcStr(wchar_t *wstr) {
 
     return reinterpret_cast<__u64>(uni);
 }
-}; // namespace SlitYerPE
+};

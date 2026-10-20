@@ -15,6 +15,11 @@ typedef enum {
     ErrCreateFile = 3u,
 } perr_t;
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 const char *strerr(perr_t err);
 void *xmalloc(__u64 size);
 __u32 FileExists(char *file);
@@ -29,4 +34,9 @@ int _write_qwordptr(void *ptr, __u64 v);
 int _write_dwordptr(void *addr, __u32 v);
 int _write_uint16(void *addr, __u16 v);
 __s8 _memcmp(void *a, void *b, __u64 size);
+
+#ifdef __cplusplus
+};
+#endif
+
 #endif

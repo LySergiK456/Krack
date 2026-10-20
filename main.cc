@@ -1,5 +1,4 @@
 #include "./include/mem.h"
-#include "./include/syp/dbgserver.hh"
 #include "./include/syp/sype.hh"
 #include "./include/syp/uc.hh"
 #include <assert.h>
@@ -32,9 +31,7 @@ int main(int argc, char **argv) {
     auto razor = SYPE::Razor(argc - 1, &argv[1]);
     // auto razor = std::make_shared<SYPE::Razor>(new SYPE::Razor(argc-1,
     // &argv[1])); printf("++%lx\n", razor.ldr.ok);
-
     uc_err err = razor.Run();
-    puts("+");
     if (!_uc_ok(err)) {
         puts(uc_strerror(err));
         return -1;

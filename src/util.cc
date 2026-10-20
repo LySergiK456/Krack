@@ -39,3 +39,7 @@ void Util::Reset() {
     SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_GREEN |
                                    FOREGROUND_BLUE);
 }
+
+__u64 Util::hash(char *name) {
+    return (__u64)std::hash<std::string>{}(name);
+};

@@ -8,7 +8,7 @@ X86_CFLAGS=	-I./x86disass/include
 UC_LDFLAGS =-L/home/rax/Documents/unicorn/build-win64
 X86_LDFLAGS=-L./x86disass/build
 
-objs = wine_tabl.o win10_tabl.o main.o dex.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o sype.o uc.o dbgserver.o pe64.o util.o utils.o #llist.o pe64_c_api.o rel_yayo.o rel_1dlsd.o xtc.o extc.o
+objs = wine_tabl.o win10_tabl.o main.o dex.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o sype.o uc.o pe64.o util.o utils.o llist.o pe64_c_api.o rel_yayo.o rel_1dlsd.o xtc.o extc.o
 test_rel_objs = test_rel.o rel_1dlsd.o pe64.o util.o utils.o llist.o pe64_c_api.o rel_yayo.o pe64_c_api.o xtc.o extc.o
 test_pe64_objs = test_pe64.o pe64.o pe64.o util.o utils.o pe64_c_api.o pe64_c_api.o
 

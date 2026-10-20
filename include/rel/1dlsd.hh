@@ -27,33 +27,38 @@ struct lsd_pass {
   public:
     lsd_pass() = default;
 
-    virtual LSD_STATUS _init_() { return LSD_OK; }
+    virtual LSD_STATUS _init_(_1Dlsd *lsd) {
+        return LSD_OK;
+    }
 
     friend class _1Dlsd;
 };
-}; // namespace SlitYerPE
+};
 
-using IMG_DOS_HEADER = IMAGE_DOS_HEADER;
-using IMG_NT_HEADERS = IMAGE_NT_HEADERS;
-using IMG_DATA_DIRECTORY = IMAGE_DATA_DIRECTORY;
-using IMG_SECTION_HEADER = IMAGE_SECTION_HEADER;
+using IMG_DOS_HEADER        = IMAGE_DOS_HEADER;
+using IMG_NT_HEADERS        = IMAGE_NT_HEADERS;
+using IMG_DATA_DIRECTORY    = IMAGE_DATA_DIRECTORY;
+using IMG_SECTION_HEADER    = IMAGE_SECTION_HEADER;
 
 namespace SlitYerPE {
-class Lyss {
-    _1Dlsd *lsd;
-    pe64_image &base_pe;
+struct Lyss {
+    _1Dlsd          *lsd;
+    pe64_image      &base_pe;
 
-  public:
-    std::map<__u64 *, struct _1Dlsd_entry> map; // pointing to pe structs
-    std::map<__u64, struct _1Dlsd_entry>
-        seg; // 'segments' in between the headers
+    std::map<__u64, struct _1Dlsd_entry>    map;
 
     Lyss(_1Dlsd *l, pe64_image &_pe) : lsd{l}, base_pe{_pe} {
-        push(&base_pe, DosHdr, base_pe.dos);
-        push(&base_pe, NtHdrs, base_pe.nt);
+        auto& pe = base_pe;
+        push(&pe, DosHdr, pe.dos);
+        push(&pe, DosStub,pe.dos_stub);
+        push(&pe, NtHdrs, pe.nt);
+
+        for (auto& sechdr : pe.sechdr)  push(&pe, SecHdr, sechdr);
+        for (auto& sec : pe.sections)   push(&pe, Section, sec);
+        initSections();
     }
     Generic(T) void push(pe64_image *pe, enum _1DLSD_TYPE t, T &v) {
-        map[&v.off] = (struct _1Dlsd_entry){
+        map[v.off] = (struct _1Dlsd_entry){
             .t = t, .mm = &v.mm, .src = {pe, v.off, v.mm.sz}};
     }
     Generic(Fn) int feach(enum _1DLSD_TYPE &t, Fn fn) {
@@ -64,45 +69,39 @@ class Lyss {
         try {
             for (auto &[_, e] : map)
                 if (e.t == t && ++i && !!e.mm) {
-                    if (!!v)
-                        *v = e;
-                    for (__u64 off = 0, sz = get_size(t); off < e.mm->sz;
-                         off += sz)
-                        fn(static_cast<lambda_arg<decltype(fn)>>(e.mm->mem +
-                                                                 off));
+                    if (!!v) *v = e;
+                    for (__u64 off = 0, sz = get_size(t); off < e.mm->sz; off += sz) {
+                        fn(static_cast<lambda_arg<decltype(fn)>>(e.mm->mem+off));
+                    }
                 }
-        } catch (...) {
-        }
+        } catch (...) {}
+
         return i;
     }
-    std::map<__u64 *, struct _1Dlsd_entry> &operator()() { return map; }
+    std::map<__u64, struct _1Dlsd_entry> &operator()() { return map; }
     __u64 get_size(enum _1DLSD_TYPE &t) {
         __u64 v = 0;
         switch (t) {
-        case DosHdr:
-            v = sizeof(IMG_DOS_HEADER);
-            break;
-        case NtHdrs:
-            v = sizeof(IMG_NT_HEADERS);
-            break;
-        case DataDir:
-            v = sizeof(IMG_DATA_DIRECTORY);
-            break;
-        case SecHdr:
-            v = sizeof(IMG_SECTION_HEADER);
-            break;
+            case DosHdr: v = sizeof(IMG_DOS_HEADER);     break;
+            case NtHdrs: v = sizeof(IMG_NT_HEADERS);     break;
+            case DataDir:v = sizeof(IMG_DATA_DIRECTORY); break;
+            case Section:v = sizeof(IMG_SECTION_HEADER); break;
         }
         return v;
     }
+
+private:
+    void initSections();
 };
 
 class _1Dlsd : public _1Dlsd_st {
-    Disass d;
-    lsd_pass &pass;
-    Lyss lyss;
+    Disass          d;
+    lsd_pass        &pass;
+    Lyss            lyss;
 
   public:
     _1Dlsd(pe64_image &base_pe, lsd_pass &_p);
+    __s8 make(char *f);
 };
-}; // namespace SlitYerPE
+};
 #endif

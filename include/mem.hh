@@ -1,5 +1,6 @@
 #include "./types.h"
 #include "./utils.h"
+#include "./mem.h"
 #include <assert.h>
 
 #ifndef KRACK_MEM_HH

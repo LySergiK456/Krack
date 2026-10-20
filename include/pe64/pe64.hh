@@ -42,31 +42,28 @@ enum class PE32_FLAGS : __u8 {
 };
 
 struct PE64 {
-    PE32_FLAGS bits;
+    bool _ok_{false};
+    PE32_FLAGS          bits;
     struct {
-        HANDLE hMap;
-        __u64 size;
+        HANDLE          hMap;
+        __u64           size;
         union {
-            void *lpName;
-            char *lpcName;
-            char *name;
+            void        *lpName;
+            char        *lpcName;
+            char        *name;
         };
-        char *shortname;
+        char            *shortname;
     } f;
     union {
-        void *pMap{0};
-        IMAGE_DOS_HEADER *dos;
-        __u8 *pMem;
+        void                *pMap{0};
+        IMAGE_DOS_HEADER    *dos;
+        __u8                *pMem;
     };
-    union {
-        IMAGE_NT_HEADERS *nt;
-        IMAGE_NT_HEADERS *nt64;
-        IMAGE_NT_HEADERS32 *nt32;
-    };
-    IMAGE_SECTION_HEADER *section;
-    Util::MMap_t<PE64_SYMBOL> symbols;
+    IMAGE_NT_HEADERS                *nt;
+    IMAGE_SECTION_HEADER            *section;
+    Util::MMap_t<PE64_SYMBOL>       symbols;
 
-    _DATA_DIR_ST(IMAGE_IMPORT_DESCRIPTOR, Desc) imp;
+    _DATA_DIR_ST(IMAGE_IMPORT_DESCRIPTOR, Desc)     imp;
     struct {
         IMAGE_DATA_DIRECTORY *DataDir;
         IMAGE_EXPORT_DIRECTORY *Dir;
@@ -75,7 +72,8 @@ struct PE64 {
         __u16 *Ords;
 
     } exp;
-    _DATA_DIR_ST(IMAGE_BASE_RELOCATION, entries) rel;
+    _DATA_DIR_ST(IMAGE_BASE_RELOCATION, entries)    rel;
+    std::vector<__u32>  x_min;
 
     __s8 ok{0};
 

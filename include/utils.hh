@@ -1,6 +1,8 @@
 #ifndef KRACK_UTILS_HH
 #define KRACK_UTILS_HH
+#include <stdio.h>
 #include <assert.h>
+#include <string>
 #include <fstream>
 #include <functional>
 #include <memory>
@@ -75,16 +77,17 @@ template <typename E> struct MMap_t {
         }
         bool operator!=(const iterator &i) const { return ptr != i.ptr; };
     };
-    MMap_t() : MMap_t(0x1000) {}
-    MMap_t(__u32 n) : count{n}, sz{PAGE_ALIGN_UP(count * sizeof(E))} {
+    MMap_t(__u32 n=0x4000)
+        : count{n}, sz{PAGE_ALIGN_UP(count * sizeof(E))}
+    {
         mem = alloc(sz);
         if (!mem && (ok = -1))
             return;
     }
 
     E &push(E &new_e) {
-        if (ndx + 1 == count) {
-            __u64 new_sz = PAGE_ALIGN_UP((count + 0x1000) * sizeof(E));
+        if (ndx == count) {
+            __u64 new_sz = PAGE_ALIGN_UP((count + 0x4000) * sizeof(E));
             void *new_mem = alloc(new_sz);
             assert(!!new_mem);
 
@@ -93,7 +96,7 @@ template <typename E> struct MMap_t {
             mem = new_mem;
             e = static_cast<E *>(mem);
             sz = new_sz;
-            count += 0x1000;
+            count += 0x4000;
         }
         return (e[ndx++] = std::move(new_e));
     }
@@ -113,6 +116,10 @@ template <typename E> struct MMap_t {
     }
 };
 }; // namespace Util
+
+namespace Util {
+    __u64 hash(char *name);
+};
 
 namespace Util {
 void Red();

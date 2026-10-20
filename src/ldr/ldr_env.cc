@@ -22,8 +22,7 @@ uc_err Ldr::InitProcEnv() {
     mmap(proc.teb_addr, PAGE_ALIGN_UP(sizeof(_TEB_)), UC_PROT_RW, "[TEB]");
     mmap(proc.peb_addr, PAGE_ALIGN_UP(sizeof(_PEB_)), UC_PROT_RW, "[PEB]");
     mmap(proc.ldr_addr, PAGE_ALIGN_UP(sizeof(_PEB_LDR_DATA_)), UC_PROT_RW);
-    mmap(proc.kusd_addr, PAGE_ALIGN_UP(sizeof(_KUSER_SHARED_DATA_)),
-         UC_PROT_RW);
+    mmap(proc.kusd_addr,PAGE_ALIGN_UP(sizeof(_KUSER_SHARED_DATA_)), UC_PROT_RW);
 
     initTEB();
     initPEB();
@@ -57,7 +56,7 @@ uc_err Ldr::init_gs_fs(__u64 gs, __u64 fs) {
 
     return err;
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 void Ldr::initKUSD() {
@@ -71,7 +70,7 @@ void Ldr::initKUSD() {
 
     mmemcpy(proc.kusd_addr, &kusd, sizeof(_KUSER_SHARED_DATA_));
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 void Ldr::initTEB() {
@@ -150,7 +149,6 @@ void Ldr::addLdrEntry(__u64 virt, wchar_t *wbase, wchar_t *wfull) {
 
     // need uppercase KERNEL32.dll
     mwrite(&e->e.DllBase, virt);
-    wprintf(L"   ~[+]~ Adding %-18ls to ->[!PEB_LDR_DATA]\n", wbase);
 
     __u16 b_len = wcslen(wbase) * sizeof(wchar_t);
     __u16 f_len = wcslen(wfull) * sizeof(wchar_t);
@@ -248,4 +246,4 @@ void Ldr::addLdrEntry(__u64 virt, char *base, char *full) {
 void Ldr::addLdrEntry(std::shared_ptr<PE64_IMAGE> dll_img) {
     addLdrEntry(dll_img->virt, dll_img->bin.f.shortname, dll_img->bin.f.name);
 }
-}; // namespace SlitYerPE
+};

@@ -1,8 +1,8 @@
 #include <ntdef.h>
 #include <windows.h>
 
-#ifndef _TYPES_H
-#define _TYPES_H
+#ifndef KRACK_TYPES_H
+#define KRACK_TYPES_H
 typedef unsigned long long __u64;
 typedef unsigned int __u32;
 typedef unsigned short __u16;

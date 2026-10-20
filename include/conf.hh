@@ -44,10 +44,10 @@ constexpr __u64 KUSER_SHARED_DATA_ADDR = 0x7FFE0000ULL;
 #define LDR_ADDR PAGE_ALIGN_UP(PEB_ADDR + sizeof(_PEB_) + 0x10)
 
 constexpr char *XTC_DEFAULT_OUTFILE = "/home/rax/uc/dat/xtc_table/xtc.dat";
-constexpr char *PE_SYMTAB_DIR = "/home/rax/uc/dat/symbols";
+constexpr char *PE_SYMTAB_DIR       = "/home/rax/uc/dat/symbols/";
 
 constexpr char *WIN_SYSTEM32_PATH = "/home/rax/uc/dat/win_dll/";
 constexpr char *NTOSKRNL_EXE_PATH = "/home/rax/uc/dat/win_dll/ntoskrnl.exe";
-#define LOAD_DLL_BASE 0x42000
+#define LOAD_DLL_BASE 0x1042000
 // #define MAIN_UC_ADDR		0x10000
 #endif

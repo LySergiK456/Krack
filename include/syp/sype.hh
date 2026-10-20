@@ -18,7 +18,7 @@ class Razor;
 class RtlHeap;
 class DbgTcp;
 class Dex;
-}; // namespace SlitYerPE
+};
 
 #define __ENTRY__(addr, entry, e) (__u64)(addr) + ((__u64)(entry) - (__u64)(e))
 
@@ -95,7 +95,7 @@ class Ldr {
     /** uc~mappings 2 Sh4d0w mappings
      */
     void virt_map_fxd(__u64 addr, __u64 size, __u32 prot);
-    void uc_map_fxd(__u64 addr, __u64 size, __u32 prot);
+    uc_err uc_map_fxd(__u64 addr, __u64 size, __u32 prot);
 
     uc_err mmap(__u64 virt, __u64 size, __u32 perm);
     uc_err mmap(__u64 virt, __u64 size, __u32 perm, char *name);
@@ -132,7 +132,7 @@ class Ldr {
 };
 
 __s8 wine_name(char *ret, __u64 size, char *dll_name);
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 class Razor {
@@ -177,7 +177,7 @@ class Dex {
                                   void *raw_ctx);
     static bool IsSyscall(void *data);
 };
-}; // namespace SlitYerPE
+};
 
 /**
  * Loader(~SlitYerPE::Ldr) Utils
@@ -201,5 +201,5 @@ class RtlHeap {
     uc_err init(__u64 fn);
 };
 }; // namespace LdrUtils
-}; // namespace SlitYerPE
+};
 #endif

@@ -138,7 +138,7 @@ void Razor::test() {
     }
 }
 uc_err Razor::Run() { return ldr.Run(); }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 void Razor::pe32_fix_imports(std::shared_ptr<PE64_IMAGE> pe_img) {
@@ -200,4 +200,4 @@ std::shared_ptr<PE64_IMAGE> Razor::FindNtosktnlDLL(char *name) {
 
     return nullptr;
 }
-}; // namespace SlitYerPE
+};

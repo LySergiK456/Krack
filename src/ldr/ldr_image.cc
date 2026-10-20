@@ -15,7 +15,7 @@ uc_err Ldr::InitDLLs(std::shared_ptr<PE64_IMAGE> pe_img) {
 
     DBG_FMT(" ~[+]~ Initializing DLL [%s]\n", pe->f.name);
     PE_EACH_XIMPORT(pe, imp) {
-        if (is_contract_dll(imp->name))
+        if (!!is_contract_dll(imp->name))
             continue;
 
         char name[0x100];
@@ -57,7 +57,7 @@ std::shared_ptr<PE64_IMAGE> Ldr::img_push(char *file) {
     img.push_back(std::make_shared<PE64_IMAGE>(file, PE_SYMTAB_DIR));
     return img.back();
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 uc_err Ldr::MapImage(std::shared_ptr<PE64_IMAGE> pe_img) {
@@ -75,16 +75,13 @@ uc_err Ldr::MapImage(std::shared_ptr<PE64_IMAGE> pe_img, __u64 base) {
     __u64 img_size = pe->nt->OptionalHeader.SizeOfImage;
 
     PE_EACH_XSEC(pe, sec) {
-        __u64 sec_size = PAGE_ALIGN_UP(sec->VirtSize);
-        void *sec_ptr = static_cast<void *>(&pe->pMem[sec->Off]);
+        __u64 sec_size  = PAGE_ALIGN_UP(sec->VirtSize);
+        void *sec_ptr   = static_cast<void *>(&pe->pMem[sec->Off]);
 
         __u32 perms = 0;
-        if (sec->isR)
-            perms |= UC_PROT_READ;
-        if (sec->isW)
-            perms |= UC_PROT_WRITE;
-        if (sec->isX)
-            perms |= UC_PROT_EXEC;
+        if (sec->isR) perms |= UC_PROT_READ;
+        if (sec->isW) perms |= UC_PROT_WRITE;
+        if (sec->isX) perms |= UC_PROT_EXEC;
 
         mmap(base + sec->Virt, sec_size, perms, pe->f.shortname);
         mmemcpy(base + sec->Virt, sec_ptr, sec->FileSize);
@@ -110,10 +107,10 @@ uc_err Ldr::RelocateImage(std::shared_ptr<PE64_IMAGE> pe_img) {
 
     PE_EACH_RELOC(&pe_img->bin, reloc) {
         PE_EACH_RELOC_ENTRY(reloc, i) {
-            __u64 rel_off = i & 0xfff;
-            __u64 rel_type = i >> 12;
-            __u64 uc_addr =
-                (__u64)pe_img->rva_to_ptr(reloc->VirtualAddress + rel_off);
+            __u64 rel_off   = i & 0xfff;
+            __u64 rel_type  = i >> 12;
+            __u64 uc_addr   = pe_img->virt
+                            + reloc->VirtualAddress + rel_off;
             __u64 v{};
 
             switch (rel_type) {
@@ -123,16 +120,17 @@ uc_err Ldr::RelocateImage(std::shared_ptr<PE64_IMAGE> pe_img) {
                 err = uc_mem_read(uc, uc_addr, &v, sizeof(__u64));
                 if (!_uc_okay(err, ok))
                     return err;
-                v += pe_img->virt;
-                // printf("%lx\n", Uc::get_map(uc, uc_addr).begin);
-                err = mwrite(uc_addr, v);
-                if (!_uc_okay(err, ok)) {
-                    puts("FUCK!");
-                    return err;
-                }
+
+                v += pe_img->virt - pe_img->bin.nt->OptionalHeader.SizeOfImage;
             }; break;
             default: // eh..
                 return UC_ERR_RESOURCE;
+            }
+
+            if (!!v) {
+                err = uc_mem_write(uc, uc_addr, (void *)&v, sizeof(__u64));
+                if (!_uc_okay(err, ok))
+                    return err;
             }
         }
     }
@@ -144,11 +142,11 @@ uc_err Ldr::MapDLLs(std::shared_ptr<PE64_IMAGE> pe_img, __u64 *off_ptr) {
     assert(!!pe_img && pe_img->bin.ok != -1);
     auto pe = &pe_img->bin;
 
-    DBG_FMT("~[+]~ Loading %s\n", pe->f.shortname);
 
     PE_EACH_XIMPORT(pe, imp) {
         __u64 dll_base = LOAD_DLL_BASE + *off_ptr;
-        if (is_contract_dll(imp->name))
+
+        if (!!is_contract_dll(imp->name))
             continue;
 
         char name[0x1000];
@@ -167,13 +165,13 @@ uc_err Ldr::MapDLLs(std::shared_ptr<PE64_IMAGE> pe_img, __u64 *off_ptr) {
 
         if (!dll_pe) {
             dll_img = img_push(name, dll_base);
-            if (!dll_img)
-                return UC_ERR_NOMEM;
+            if (!dll_img) return UC_ERR_NOMEM;
+            dll_pe = &dll_img->bin;
 
+            DBG_FMT("~[+]~ Mapping %s\n", dll_pe->f.shortname);
             err = MapImage(dll_img, dll_base);
             if (!_uc_okay(err, ok))
                 return err;
-            dll_pe = &dll_img->bin;
             *off_ptr += PAGE_ALIGN_UP(dll_pe->nt->OptionalHeader.SizeOfImage);
         }
 
@@ -189,7 +187,7 @@ uc_err Ldr::FixIAT(std::shared_ptr<PE64_IMAGE> pe_img) {
     auto pe = &pe_img->bin;
 
     PE_EACH_XIMPORT(pe, imp) {
-        if (is_contract_dll(imp->name))
+        if (!!is_contract_dll(imp->name))
             continue;
 
         char name[0x100];
@@ -223,10 +221,10 @@ uc_err Ldr::FixIAT(std::shared_ptr<PE64_IMAGE> pe_img) {
                 }
             }
             if (!!fn_rva) {
-                __u64 uc_iat = pe_img->virt;
-                +pe->off_to_rva((__u64)imp->IAT - (__u64)pe->pMap);
-                __u64 *uc_iat_fn =
-                    &(((IMAGE_THUNK_DATA64 *)uc_iat)[i].u1.Function);
+                __u64 uc_iat =  pe_img->virt
+                                + pe->off_to_rva((__u64)imp->IAT - (__u64)pe->pMap);
+                                + i * sizeof(IMAGE_THUNK_DATA64);
+                __u64 *uc_iat_fn = &(((IMAGE_THUNK_DATA64 *)uc_iat)[i].u1.Function);
                 mwrite(uc_iat_fn, dll_base + fn_rva);
             }
         }
@@ -243,14 +241,14 @@ std::shared_ptr<PE64_IMAGE> Ldr::FindDLL(char *name) {
 
     return nullptr;
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 static bool is_contract_dll(char *name) {
     return !!name && (!strncmp(name, "api-ms-win-", 11) ||
                       !strncmp(name, "ext-ms-win-", 11));
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE::LdrUtils {
 RtlHeap::RtlHeap(Ldr &l) : ldr{l} {
@@ -283,6 +281,7 @@ RtlHeap::RtlHeap(Ldr &l) : ldr{l} {
 uc_err RtlHeap::init(__u64 fn) {
     uc_err err{UC_ERR_OK};
     auto uc = ldr.uc;
+
     err = uc_mem_map(uc, retn_addr, PAGE_SIZE, UC_PROT_RWX);
     if (!_uc_okay(err, ok))
         return err;
@@ -312,4 +311,4 @@ void RtlHeap::setup_regs() {
     ldr.mwrite(rsp + 0x30, 0ULL);
     Uc::reg_wr(uc, X86Reg::rsp, rsp);
 }
-}; // namespace SlitYerPE::LdrUtils
+};

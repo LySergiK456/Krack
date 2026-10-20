@@ -1,6 +1,7 @@
 #include <fileapi.h>
 #include <windows.h>
 #include <winternl.h>
+#include "./types.h"
 
 #ifndef KRACK_MEM_H
 #define KRACK_MEM_H

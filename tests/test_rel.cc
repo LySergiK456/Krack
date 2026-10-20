@@ -7,7 +7,9 @@ extern "C" {
 
 struct my_pack : SlitYerPE::lsd_pass {
     my_pack() = default;
-    LSD_STATUS _init_() { return LSD_OK; }
+    LSD_STATUS _init_(SlitYerPE::_1Dlsd *lsd) {
+        return LSD_OK;
+    }
 };
 
 int main() {
@@ -34,11 +36,13 @@ int main() {
     puts("++");
     // char *sc = "\xe8\xd8\x9a\xff\xff";
     auto pass = my_pack();
-    pe64_image *pe = new_pe64("/home/rax/win10_dll/ntdll.dll");
+    pe64_image *pe = new_pe64("/home/rax/uc/specimen/b.exe");
     assert(!!pe);
+    puts("@");
     auto lsd = SlitYerPE::_1Dlsd(*pe, pass);
-    for (int i = 0; i < 0xdead00; i++)
-        ;
+    // for (int i = 0; i < 0xdead00; i++)
+    //     ;
+    lsd.make("/tmp/hello.exe");
     // if (syp.ins_insn(0xecafeb01, sc, pe) != SYP_OK)
     // puts("FUCK!");
     return 0;

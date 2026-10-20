@@ -59,12 +59,17 @@ PE64::PE64(char *file, char *symtab_dir) {
     ParseEAT();
     ParseReloc();
     if (!!symtab_dir) {
-        if (LoadSymtabFromDir(symtab_dir) != ErrOK)
+        if (LoadSymtabFromDir(symtab_dir) != ErrOK) {
             goto load_syms;
+        } else {
+            DBG_FMT(" [+] Loaded symbols from %s/%s\n", symtab_dir, f.shortname);
+        }
     } else {
     load_syms:
+        DBGS(" [+] Initializing symbol table");
         InitSymtab();
         if (!!symtab_dir) {
+            DBG_FMT(" [+] Saving symbols to %s/%s\n", symtab_dir, f.shortname);
             perr_t err = SaveSymtab(symtab_dir);
             if (err != ErrOK && (ok = -1))
                 puts(strerr(err));
@@ -95,7 +100,7 @@ void PE64::ParseEAT() {
     exp.Ords = (__u16 *)rva_to_ptr(exp.Dir->AddressOfNameOrdinals);
 }
 
-#define X_MIN_IS(x_min, x_rva, rva)                                            \
+#define X_MIN_IS(x_min, x_rva, rva)     \
     ((x_rva) > (rva) && (!(x_min) || (x_rva) < (x_min)))
 
 __u32 PE64::rva_sym_size(__u32 rva) {
@@ -122,7 +127,7 @@ __u32 PE64::rva_sym_size(__u32 rva) {
             x_min = x_rva;
     }
 
-    return rva_to_off(x_min - rva);
+    return (x_min > rva) ? (x_min-rva) : 0;
 }
 
 perr_t PE64::LoadSymtabFromDir(char *dir) {
@@ -130,7 +135,7 @@ perr_t PE64::LoadSymtabFromDir(char *dir) {
         return ErrNoDir;
 
     char *entry_name =
-        static_cast<char *>(xmalloc(strlen(dir) + 1 + strlen(f.shortname) + 1));
+        static_cast<char *>(xmalloc(strlen(dir) + 1 + strlen(f.shortname) + 4 +1));
     strcpy(entry_name, dir);
     strcat(entry_name, "/");
     strcat(entry_name, f.shortname);
@@ -166,7 +171,7 @@ perr_t PE64::SaveSymtab(char *dir) {
         return ErrNoDir;
 
     char *entry_name =
-        static_cast<char *>(xmalloc(strlen(dir) + 1 + strlen(f.shortname) + 1));
+        static_cast<char *>(xmalloc(strlen(dir) + 1 + strlen(f.shortname) + 4 +1));
     _defer([&] { free(entry_name); });
     strcpy(entry_name, dir);
     strcat(entry_name, "/");
@@ -187,8 +192,7 @@ perr_t PE64::SaveSymtab(char *dir) {
     o_stream.write(reinterpret_cast<char *>(&dat_header), sizeof(dat_symtab_t));
     for (auto &s : symbols) {
         PE64_SYMBOL sym(s);
-
-        memset(&sym.name, 0, sizeof(char *));
+        sym.name = nullptr;
         o_stream.write((char *)&sym, sizeof(PE64_SYMBOL));
     }
 
@@ -253,11 +257,11 @@ void PE64::InitSymtab() {
 }
 
 bool PE64::rva_is_overflow(__u32 rva) {
-    return (rva == -1 || !rva || rva > nt->OptionalHeader.SizeOfImage);
+    return (rva == -1 || !rva || rva >= nt->OptionalHeader.SizeOfImage);
 }
 
 bool PE64::off_is_overflow(__u32 off) {
-    return off < nt->OptionalHeader.SizeOfImage;
+    return off >= f.size;
 }
 
 __u64 PE64::base() { return nt->OptionalHeader.ImageBase; }

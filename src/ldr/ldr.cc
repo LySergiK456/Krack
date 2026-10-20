@@ -20,22 +20,22 @@ Ldr::Ldr(int argc, char **argv)
 
     main_image->virt = main_image->bin.base();
 
-    DBGS(" ~[+]~ Initializing (vm) Process Environment");
+    DBGS("~[+]~ Initializing (vm) Process Environment");
     err = InitProcEnv();
     if (!_uc_okay(err, ok))
         goto failed;
 
-    DBGS(" ~[+]~ Mapping main PE32+");
+    DBGS("~[+]~ Mapping main PE32+");
     err = MapImage(main_image);
     if (!_uc_okay(err, ok))
         goto failed;
 
-    DBGS(" ~[+]~ Mapping Dll's");
+    DBGS("~[+]~ Mapping Dll's");
     err = MapDLLs(main_image, &off);
     if (!_uc_okay(err, ok))
         goto failed;
 
-    DBGS(" ~[+]~ Fixing IAT of binaries");
+    DBGS("~[+]~ Fixing IAT of binaries");
     err = FixIAT(main_image);
     if (!_uc_okay(err, ok))
         goto failed;
@@ -62,7 +62,7 @@ std::shared_ptr<PE64_IMAGE> Ldr::VAtoImage(__u64 va) {
 
     return nullptr;
 }
-}; // namespace SlitYerPE
+};
 
 namespace SlitYerPE {
 uc_err Ldr::Run() {
@@ -86,4 +86,4 @@ uc_err Ldr::Run() {
 
     return err;
 }
-}; // namespace SlitYerPE
+};

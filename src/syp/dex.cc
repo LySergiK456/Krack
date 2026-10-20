@@ -1,15 +1,14 @@
+#include <assert.h>
+#include <unicorn/unicorn.h>
+#include <windows.h>
 #include "../../include/mem.h"
 #include "../../include/syp/sype.hh"
 #include "../../include/syp/uc.hh"
 #include "../../x86disass/disass.hpp"
-#include <assert.h>
-#include <unicorn/unicorn.h>
-#include <windows.h>
 extern "C" {
-#include "../../include/utils.h"
-#include "../../include/syp/syscall.h"
+    #include "../../include/utils.h"
+    #include "../../include/syp/syscall.h"
 };
-#include "../../include/syp/dbgserver.hh"
 
 static void dbg_pr_insn(insn_t &, void *, char *, char *, __u64, char *, char *,
                         __u64);
@@ -33,19 +32,20 @@ void Dex::hook_code(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
     auto insn = dex->d.disass(buf);
 
 #ifdef HOOK_PR_INSN
-    dex->PrintInsn(insn, buf);
+    dex->PrintInsn(insn, reinterpret_cast<void*>(addr));
 #endif
 
     if (!!IsSyscall(buf)) {
         __u64 retn = dispatch_syscall(uc, addr, i, raw_ctx);
         __u64 rip = Uc::reg(uc, X86Reg::rip);
-
+        DBG_FMT(" syscall retn=0x%llx\n", retn);
+        
         rip += insn.size();
         Uc::reg_wr(uc, X86Reg::rip, rip);
         Uc::reg_wr(uc, X86Reg::rax, retn);
     }
 }
-}; // namespace SlitYerPE
+};
 
 /* for each malloc - _defer( [&]{free(); }) */
 namespace SlitYerPE {
@@ -147,7 +147,7 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
 
     return retn;
 }
-}; // namespace SlitYerPE
+};
 
 static inline void memcpyTEB(_TEB_ *teb, _TEB_ *orig_teb,
                              shadow_mem_t *shadow_teb) {
@@ -170,18 +170,21 @@ static inline void memcpyTEB(_TEB_ *teb, _TEB_ *orig_teb,
     teb->ReservedWow64 = orig_teb->ReservedWow64;
 }
 
-static inline void memcpyPEB(_PEB_ *peb, _PEB_ *orig_peb,
-                             shadow_mem_t *shadow_peb) {
+static inline void
+memcpyPEB(_PEB_ *peb, _PEB_ *orig_peb, shadow_mem_t *shadow_peb)
+{
     memcpy(peb, shadow_peb->addr, sizeof(_PEB_));
 }
 
-static inline void memcpyLDR(_PEB_LDR_DATA_ *ldr, _PEB_LDR_DATA_ *orig_ldr,
-                             shadow_mem_t *shadow_ldr) {
+static inline void
+memcpyLDR(_PEB_LDR_DATA_ *ldr, _PEB_LDR_DATA_ *orig_ldr, shadow_mem_t *shadow_ldr)
+{
     memcpy(ldr, shadow_ldr->addr, sizeof(_PEB_LDR_DATA_));
 }
 
-static inline void memcpyKUSD(_KUSD_ *kusd, _KUSD_ *orig_kusd,
-                              shadow_mem_t *shadow_kusd) {
+static inline void
+memcpyKUSD(_KUSD_ *kusd, _KUSD_ *orig_kusd, shadow_mem_t *shadow_kusd)
+{
     memcpy(kusd, shadow_kusd->addr, sizeof(_KUSD_));
 }
 
@@ -246,7 +249,7 @@ void Dex::PrintInsn(insn_t &insn, void *addr) {
     PE64_SYMBOL *src_sym{};
 
     if (!!src_pe->f.name)
-        src_sym = src_pe->rva_to_sym((__u32)(__u64)addr - (__u32)src_img->virt);
+        src_sym = src_pe->rva_to_sym((__u32)((__u64)addr - src_img->virt));
 
     char *src_sym_name =
         (!src_sym || !src_sym->name) ? const_cast<char *>("?") : src_sym->name;
@@ -254,16 +257,14 @@ void Dex::PrintInsn(insn_t &insn, void *addr) {
     __u64 dst_addr = insn.PtrAddr((__u64)addr);
     if (dst_addr != -1) {
         auto dst_img = r->ldr.VAtoImage(dst_addr);
-        if (!dst_img) {
-            insn.Print();
-            return;
-        }
+        if (!dst_img) goto pr_src;
+
         PE64 *dst_pe = &dst_img->bin;
         PE64_SYMBOL *dst_sym{};
 
         if (!!dst_pe->f.name)
             dst_sym =
-                dst_pe->rva_to_sym((__u32)(__u64)addr - (__u32)dst_img->virt);
+                dst_pe->rva_to_sym((__u32)(((__u64)addr) - dst_img->virt));
 
         char *dst_sym_name = (!dst_sym || !dst_sym->name)
                                  ? const_cast<char *>("?")
@@ -279,13 +280,14 @@ void Dex::PrintInsn(insn_t &insn, void *addr) {
             dst_sym_name,        // dst symbol name
             dst_addr - dst_img->virt);
     } else {
+        pr_src:
         dbg_pr_insn(
             insn, addr, src_pe->f.shortname, src_sym_name,
             (__u64)((!!src_sym) ? addr - (src_img->virt + src_sym->rva) : 0),
             nullptr, 0, 0);
     }
 }
-}; // namespace SlitYerPE
+};
 
 static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
                         __u64 src_sym_off, char *dst_name, char *dst_sym,
@@ -301,7 +303,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
     DBG_F("] <");
 
-    Util::Red();
+    Util::Blue();
     DBG_FMT("%s", src_sym);
     Util::Reset();
     DBG_F("+");
@@ -318,7 +320,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
         DBG_F("] <");
 
-        Util::Red();
+        Util::Blue();
         DBG_FMT("%s", dst_sym);
         Util::Reset();
         DBG_F("+");
@@ -330,6 +332,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
     Util::Reset();
     DBG_F(" -~*> ");
-    Util::White();
+    Util::Red();
     insn.Print();
+    Util::Reset();
 }
