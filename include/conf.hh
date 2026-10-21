@@ -9,8 +9,8 @@ extern "C" {
 
 #ifdef DO_DEBUG
 #define DBG_FMT(s, ...) printf(const_cast<char *>((s)), __VA_ARGS__)
-#define DBG_F(s, ...) printf(const_cast<char *>((s)))
-#define DBGS(s) puts(const_cast<char *>((s)))
+#define DBG_F(s, ...)   printf(const_cast<char *>((s)))
+#define DBGS(s)         puts(const_cast<char *>((s)))
 #else
 #define DBG_FMT(s, ...)
 #define DBG_F(s, ...)

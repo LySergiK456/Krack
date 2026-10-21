@@ -44,12 +44,12 @@ struct yayo_hook {
 };
 
 struct yayo_px {
-    enum yayo_px_t t;
+    enum yayo_px_t  t;
     struct {
         __u64 orig_off, dst_off;
         __u64 orig_size, dst_size;
     };
-    LLIST_OF(struct yayo_px) ll_px;
+    LLIST_OF(struct yayo_px) ll_yayo_px;
     LLIST_OF(struct yayo_hook) ll_hooks;
 };
 
@@ -62,9 +62,11 @@ struct xtc_px {
     __u8 sc[15];
     __u8 size;
 };
+typedef __u64 (*yayp_imm_hook_t)(struct yayo_px *, __u64 i, instr_dat_t *in, __u64 imm);
 
 struct rel_yayo_tic {
-    enum yayo_ref_t t;
+    enum yayo_ref_t     t;
+    yayp_imm_hook_t     hook_fn;
     union {
         /* PE64*/
         struct {
@@ -87,11 +89,14 @@ struct rel_yayo_tic {
             LLIST_OF(struct rel_uc_evmmap) ll_entries;
         } uc;
     };
+    struct {
+        __u64       off;
+    } out;
     LLIST_OF(struct xtc_px) ll_xtc_px;
     LLIST_OF(struct yayo_px) ll_yayo_px;
 };
 
 struct rel_yayo {
-    LLIST_OF(struct rel_yayo_tic) ll_tics;
+    LLIST_OF(struct rel_yayo_tic) ll_yayo;
 };
 #endif

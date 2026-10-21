@@ -6,9 +6,12 @@
 #include <list>
 #include <memory>
 #include <type_traits>
+#include <string.h>
 #include <unicorn/unicorn.h>
 extern "C" {
-#include "../types.h"
+    #include "../types.h"
+    #include "./syscall.h"
+    #include "./dex.h"
 };
 
 #ifndef KRACK_SYPE_HH
@@ -17,7 +20,7 @@ namespace SlitYerPE {
 class Razor;
 class RtlHeap;
 class DbgTcp;
-class Dex;
+struct Dex;
 };
 
 #define __ENTRY__(addr, entry, e) (__u64)(addr) + ((__u64)(entry) - (__u64)(e))
@@ -26,7 +29,12 @@ class Dex;
 // using PE64_IMAGE_LIST	= std::list<std::shared_ptr<PE64_IMAGE>>;
 
 namespace SlitYerPE {
-__attribute__((constructor)) void init_wine_syscalls();
+    enum class SyscallHook : __u8
+    {
+        PreHook = 1,
+        PostHook= 2,
+    };
+    __attribute__((constructor)) void init_wine_syscalls();
 };
 
 namespace SlitYerPE {
@@ -128,10 +136,16 @@ class Ldr {
     std::shared_ptr<PE64_IMAGE> img_push(char *file, __u64 base);
 
     friend class RtlHeap;
-    friend class Dex;
+    friend struct Dex;
 };
 
 __s8 wine_name(char *ret, __u64 size, char *dll_name);
+};
+
+namespace SlitYerPE::DexVerse {
+    dex_ctx_t *newDexCtx();
+    void addDexSource(dex_ctx_t *dex, __u64 addr, __u64 size);
+    int dex_callback(dex_ctx_t *dex, uc_engine *uc, __u64 addr);
 };
 
 namespace SlitYerPE {
@@ -163,19 +177,21 @@ class Razor {
     void test();
 };
 
-class Dex {
-  public:
-    Razor *r;
-    Disass d;
+struct Dex {
+    Disass      d;
+    Razor       *r;
+    dex_ctx_t   *ctx;
 
     Dex(Dex &&x) = default;
-    Dex(Razor *_r) : r{_r} {}
+    Dex(Razor *_r) : r{_r}, ctx{DexVerse::newDexCtx()} {}
 
+    static void syscall_hook(SyscallHook t, const char *name, void *fn);
     void PrintInsn(insn_t &insn, void *addr);
     static void hook_code(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx);
-    static __u64 dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i,
-                                  void *raw_ctx);
+    static __u64 dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx);
     static bool IsSyscall(void *data);
+    static inline __u64 __syscall(uc_engine *uc, __NtArgs &args, void *raw_ctx);
+    static inline __u64 _syscall_(__NtArgs *args);
 };
 };
 

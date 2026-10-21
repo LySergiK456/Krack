@@ -1,3 +1,4 @@
+#include <unicorn/unicorn.h>
 #include "../types.h"
 
 #ifndef KRACK_SYSCALL_H
@@ -31,24 +32,37 @@ typedef struct {
                    *val = (__u64 *)(&(((char *)(args))[i + 0x18]));            \
              !!ptr; ptr = NULL)
 
+typedef __u64 (*syscall_call_t)(__u64, __u64, __u64, __u64, __u64, __u64, __u64, __u64);
+typedef __u64 (*NtHook_t)(uc_engine *uc, __NtArgs *args, void *user_ctx, __u64 rax);
+
 typedef struct {
-    void *fn;
-    char *name;
-    __u32 v;
+    void        *fn;    // GetProcAddress()
+    NtHook_t    pre_hook;
+    NtHook_t    post_hook;
+    char        *name;
+    __u32       v;
 } NtSyscallTableEntry;
 
 #define WIN10_SYSCALL_COUNT 945
 #define WINE_SYSCALL_COUNT 470
 
-extern NtSyscallTableEntry wine_syscalls[];
-extern NtSyscallTableEntry win10_syscalls[];
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern NtSyscallTableEntry wine_syscalls[WINE_SYSCALL_COUNT];
+extern NtSyscallTableEntry win10_syscalls[WIN10_SYSCALL_COUNT];
+
+#ifdef __cplusplus
+}
+#endif
 
 #define WINE_EACH_SYSCALL(e)                                                   \
-    for (NtSyscallTableEntry *e = &wine_syscalls[0];                           \
-         e < &wine_syscalls[WINE_SYSCALL_COUNT]; e++)
+    for (NtSyscallTableEntry *e = &(wine_syscalls)[0];                           \
+         e < &(wine_syscalls)[WINE_SYSCALL_COUNT]; e++)
 
 #define WIN10_EACH_SYSCALL(e)                                                  \
-    for (NtSyscallTableEntry *e = &win10_syscalls[0];                          \
-         e < &win10_syscalls[WIN10_SYSCALL_COUNT]; e++)
+    for (NtSyscallTableEntry *e = &(win10_syscalls)[0];                          \
+         e < &(win10_syscalls)[WIN10_SYSCALL_COUNT]; e++)
 
 #endif

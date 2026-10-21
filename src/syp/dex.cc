@@ -13,16 +13,14 @@ extern "C" {
 static void dbg_pr_insn(insn_t &, void *, char *, char *, __u64, char *, char *,
                         __u64);
 static NtSyscallTableEntry *win2wine_syscall_entry(__u64 nr);
-typedef __s64 (*syscall_call_t)(__u64, __u64, __u64, __u64, __u64, __u64, __u64,
-                                __u64);
-static inline __u64 __syscall(__NtArgs &args);
 
 using _KUSD_ = _KUSER_SHARED_DATA_;
 static inline void memcpyTEB(_TEB_ *, _TEB_ *, shadow_mem_t *);
 static inline void memcpyPEB(_PEB_ *, _PEB_ *, shadow_mem_t *);
-static inline void memcpyLDR(_PEB_LDR_DATA_ *, _PEB_LDR_DATA_ *,
-                             shadow_mem_t *);
+static inline void memcpyLDR(_PEB_LDR_DATA_ *, _PEB_LDR_DATA_ *, shadow_mem_t *);
 static inline void memcpyKUSD(_KUSD_ *, _KUSD_ *, shadow_mem_t *);
+
+using namespace SlitYerPE::DexVerse;
 
 namespace SlitYerPE {
 void Dex::hook_code(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
@@ -34,6 +32,8 @@ void Dex::hook_code(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
 #ifdef HOOK_PR_INSN
     dex->PrintInsn(insn, reinterpret_cast<void*>(addr));
 #endif
+    
+    dex_callback(dex->ctx, uc, addr);
 
     if (!!IsSyscall(buf)) {
         __u64 retn = dispatch_syscall(uc, addr, i, raw_ctx);
@@ -54,19 +54,21 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
         DBGS("[-] !dispatch_syscall - supplied NULL raw_ctx");
         return -1;
     }
-    auto dex = reinterpret_cast<Dex *>(raw_ctx);
+    auto dex = reinterpret_cast<Dex*>(raw_ctx);
     SlitYerPE::Ldr &r_ldr{dex->r->ldr};
 
     __u64 rsp = Uc::reg(uc, X86Reg::rsp);
-    __NtArgs args = {.rax = Uc::reg(uc, X86Reg::rax),
-                     .r10 = Uc::reg(uc, X86Reg::r10),
-                     .rdx = Uc::reg(uc, X86Reg::rdx),
-                     .r8 = Uc::reg(uc, X86Reg::r8),
-                     .r9 = Uc::reg(uc, X86Reg::r9),
-                     .rsp_h28 = Uc::read_u64(uc, rsp + 0x28),
-                     .rsp_h30 = Uc::read_u64(uc, rsp + 0x30),
-                     .rsp_h38 = Uc::read_u64(uc, rsp + 0x38),
-                     .rsp_h40 = Uc::read_u64(uc, rsp + 0x40)};
+    __NtArgs args = {
+        .rax    = Uc::reg(uc, X86Reg::rax),
+        .r10    = Uc::reg(uc, X86Reg::r10),
+        .rdx    = Uc::reg(uc, X86Reg::rdx),
+        .r8     = Uc::reg(uc, X86Reg::r8),
+        .r9     = Uc::reg(uc, X86Reg::r9),
+        .rsp_h28 = Uc::read_u64(uc, rsp + 0x28),
+        .rsp_h30 = Uc::read_u64(uc, rsp + 0x30),
+        .rsp_h38 = Uc::read_u64(uc, rsp + 0x38),
+        .rsp_h40 = Uc::read_u64(uc, rsp + 0x40)
+    };
 
     NT_ARGS_EACH(&args, pPtr, pSize, reg, pVal) {
         if (reg == (int)-1)
@@ -87,16 +89,14 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
     // Original [<teb,peb,ldr,kusd>] & Real [<teb,peb,ldr,kusd>]
     _TEB_ orig_teb{}, *teb = reinterpret_cast<_TEB_ *>(__readgsqword(0x30));
     _PEB_ orig_peb{}, *peb = reinterpret_cast<_PEB_ *>(__readgsqword(0x60));
-    _PEB_LDR_DATA_ orig_ldr{},
-        *ldr = reinterpret_cast<_PEB_LDR_DATA_ *>(peb->Ldr);
-    _KUSD_ orig_kusd{},
-        *kusd = reinterpret_cast<_KUSD_ *>(KUSER_SHARED_DATA_ADDR);
+    _PEB_LDR_DATA_ orig_ldr{}, *ldr = reinterpret_cast<_PEB_LDR_DATA_ *>(peb->Ldr);
+    _KUSD_ orig_kusd{}, *kusd = reinterpret_cast<_KUSD_ *>(KUSER_SHARED_DATA_ADDR);
     /** Copy the Original [teb,peb,ldr,kusd]
      **/
     memcpy(reinterpret_cast<char *>(&orig_teb), teb, sizeof(_TEB_));
     memcpy(reinterpret_cast<char *>(&orig_peb), peb, sizeof(_PEB_));
     memcpy(reinterpret_cast<char *>(&orig_ldr), ldr, sizeof(_PEB_LDR_DATA_));
-    memcpy(reinterpret_cast<char *>(&orig_kusd), kusd, sizeof(_KUSD_));
+    memcpy(reinterpret_cast<char *>(&orig_kusd),kusd,sizeof(_KUSD_));
 
     /**
      * SH4D0W Memory **/
@@ -109,7 +109,7 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
     __wr_init(teb, sizeof(_TEB_), &_perm[0]);
     __wr_init(peb, sizeof(_PEB_), &_perm[1]);
     __wr_init(peb, sizeof(_PEB_LDR_DATA_), &_perm[2]);
-    __wr_init(kusd, sizeof(_KUSD_), &_perm[3]);
+    __wr_init(kusd,sizeof(_KUSD_),&_perm[3]);
 
     /**
      * Replace/memcpy TEB->PEB->LDR->KUSD
@@ -122,10 +122,10 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
     memcpyKUSD(kusd, &orig_kusd, shadow_kusd);
 
     /** Do syscall **/
-    __u64 retn = __syscall(args);
+    __u64 retn = __syscall(uc, args, raw_ctx);
 
     /* diff teb/peb*/
-    memcpy(kusd, reinterpret_cast<char *>(&orig_kusd), sizeof(_KUSD_));
+    memcpy(kusd,reinterpret_cast<char *>(&orig_kusd),sizeof(_KUSD_));
     memcpy(ldr, reinterpret_cast<char *>(&orig_ldr), sizeof(_PEB_LDR_DATA_));
     memcpy(peb, reinterpret_cast<char *>(&orig_peb), sizeof(_PEB_));
     memcpy(teb, reinterpret_cast<char *>(&orig_teb), sizeof(_TEB_));
@@ -135,12 +135,12 @@ __u64 Dex::dispatch_syscall(uc_engine *uc, __u64 addr, __u64 i, void *raw_ctx) {
     __wr_exit(teb, sizeof(_TEB_), _perm[0]);
     __wr_exit(peb, sizeof(_PEB_), _perm[1]);
     __wr_exit(peb, sizeof(_PEB_LDR_DATA_), _perm[2]);
-    __wr_exit(kusd, sizeof(_KUSD_), _perm[3]);
+    __wr_exit(kusd,sizeof(_KUSD_), _perm[3]);
 
     NT_ARGS_EACH(&args, pPtr, pSize, reg, _)
     if (!!*pPtr) {
         auto map = r_ldr.VAtoShadow(reg);
-        if (map->IsX()) {
+        if (map->IsW()) {
             _uc_assert(uc_mem_write(uc, reg, (void *)(*pPtr), *pSize));
         }
     }
@@ -195,9 +195,9 @@ bool SlitYerPE::Dex::IsSyscall(void *data) {
             !strncmp((char *)data, SYSCALL_LEGACY_OP, 2));
 }
 
-static inline __u64 __syscall(__NtArgs &args) {
+inline __u64 SlitYerPE::Dex::__syscall(uc_engine *uc, __NtArgs &args, void *raw_ctx) {
     __u64 nr = args.rax;
-    DBG_FMT("[SYSCALL=%i]", nr);
+    DBG_FMT("[SYSCALL=%i]\n", nr);
 
     NtSyscallTableEntry *entry = win2wine_syscall_entry(nr);
     if (!entry) {
@@ -209,33 +209,67 @@ static inline __u64 __syscall(__NtArgs &args) {
                 entry->name);
         return STATUS_ACCESS_VIOLATION;
     }
+    
+    __u64 retn{};
+    if (!!entry->pre_hook)
+    {   /** Pre Syscall Hook **/
+        retn=entry->pre_hook(uc, &args, raw_ctx, args.rax);
+    } else {
+        retn=SlitYerPE::Dex::_syscall_(&args);
+    }
+    /** Post Syscall Hook **/
+    if (!!entry->post_hook) {
+        entry->pre_hook(uc, &args, raw_ctx, retn);
+    }
+
+    return retn;
+}
+
+inline __u64 SlitYerPE::Dex::_syscall_(__NtArgs *args) {
+    __u64 retn{};
+    NtSyscallTableEntry *entry = win2wine_syscall_entry(args->rax);
+    if (!entry || !entry->fn)
+        return STATUS_ACCESS_VIOLATION;
 
     auto fn = reinterpret_cast<syscall_call_t>(entry->fn);
-    return fn(args.r10_v,      // 1st arg
-              args.rdx_v,      // 2st
-              args.r8_v,       // 3st
-              args.r9_v,       // 4th
-              args.rsp_h28_v,  // 5th
-              args.rsp_h30_v,  // 6th
-              args.rsp_h38_v,  // 7th
-              args.rsp_h40_v); // 8th. 8+ not supported
+    return fn(  args->r10_v,      // 1st arg
+                args->rdx_v,      // 2st
+                args->r8_v,       // 3st
+                args->r9_v,       // 4th
+                args->rsp_h28_v,  // 5th
+                args->rsp_h30_v,  // 6th
+                args->rsp_h38_v,  // 7th
+                args->rsp_h40_v); // 8th. 8+ not supported
 }
 
 static NtSyscallTableEntry *win2wine_syscall_entry(__u64 nr) {
-    NtSyscallTableEntry *win10_syscall{};
-    WIN10_EACH_SYSCALL(e) {
-        if (e->v == nr)
-            win10_syscall = e;
+    NtSyscallTableEntry *retn{}, *win10_syscall{};
+    WIN10_EACH_SYSCALL(entry) {
+        if (entry->v == nr) {
+            win10_syscall = entry;
+            break;
+        }
     }
     if (!win10_syscall)
         return nullptr;
 
     __u64 s_len = strlen(win10_syscall->name) + 1;
     WINE_EACH_SYSCALL(e) {
-        if (!strncmp(win10_syscall->name, e->name, s_len))
-            return e;
+        if (!_memcmp(win10_syscall->name, e->name, s_len)) {
+            retn = e;
+            break;
+        }
     }
-    return nullptr;
+    return retn;
+}
+
+void SlitYerPE::Dex::syscall_hook(SyscallHook t, const char *name, void *fn) {
+    WINE_EACH_SYSCALL(e) {
+        if (!_memcmp(e->name, const_cast<char*>(name), strlen(name)+1)) {
+            if (t == SyscallHook::PreHook)  e->pre_hook = reinterpret_cast<NtHook_t>(fn);
+            if (t == SyscallHook::PostHook) e->post_hook= reinterpret_cast<NtHook_t>(fn);
+        }
+    }
 }
 
 namespace SlitYerPE {
@@ -303,7 +337,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
     DBG_F("] <");
 
-    Util::Blue();
+    Util::Purple();
     DBG_FMT("%s", src_sym);
     Util::Reset();
     DBG_F("+");
@@ -320,7 +354,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
         DBG_F("] <");
 
-        Util::Blue();
+        Util::Purple();
         DBG_FMT("%s", dst_sym);
         Util::Reset();
         DBG_F("+");
@@ -332,7 +366,7 @@ static void dbg_pr_insn(insn_t &insn, void *addr, char *src_name, char *src_sym,
 
     Util::Reset();
     DBG_F(" -~*> ");
-    Util::Red();
+    Util::Blue();
     insn.Print();
     Util::Reset();
 }

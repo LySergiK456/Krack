@@ -115,16 +115,15 @@ template <typename E> struct MMap_t {
         return dat;
     }
 };
-}; // namespace Util
 
-namespace Util {
-    __u64 hash(char *name);
+__u64 hash(char *);
 };
 
 namespace Util {
 void Red();
 void Green();
 void Blue();
+void Purple();
 void White();
 void Reset();
 }; // namespace Util

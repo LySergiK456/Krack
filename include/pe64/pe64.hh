@@ -257,4 +257,7 @@ struct PE64_IMAGE {
     (!!sym->SectionNumber &&                                                   \
      sym->SectionNumber <= (pe)->nt->FileHeader.NumberOfSections)
 
+#define PE_EACH_DATA_DIR(i)                                                     \
+        for (__u64 i=0; i<IMAGE_NUMBEROF_DIRECTORY_ENTRIES; i++)
+
 #endif

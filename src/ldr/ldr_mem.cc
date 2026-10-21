@@ -190,9 +190,11 @@ uc_err Ldr::mwrite(__u64 addr, auto v) {
     if (!sh_mem || !sh_mem->addr)
         return UC_ERR_NOMEM;
 
-    if ((typeid(v) == typeid(void *) || typeid(v) == typeid(void **) ||
-         typeid(v) == typeid(__u64) || typeid(v) == typeid(long long)) &&
-        !!Uc::get_map(uc, *(__u64 *)&v).begin) {
+    if ((   typeid(v) == typeid(void *)
+        ||  typeid(v) == typeid(void **)
+        ||  typeid(v) == typeid(__u64)
+        ||  typeid(v) == typeid(long long))
+        && !!Uc::get_map(uc, *(__u64 *)&v).begin) {
         __u64 value{*(__u64 *)&v};
 
         auto v_sh_mem = VAtoShadow(value);

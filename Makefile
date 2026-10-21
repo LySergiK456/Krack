@@ -8,7 +8,7 @@ X86_CFLAGS=	-I./x86disass/include
 UC_LDFLAGS =-L/home/rax/Documents/unicorn/build-win64
 X86_LDFLAGS=-L./x86disass/build
 
-objs = wine_tabl.o win10_tabl.o main.o dex.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o sype.o uc.o pe64.o util.o utils.o llist.o pe64_c_api.o rel_yayo.o rel_1dlsd.o xtc.o extc.o
+objs = dbgserver.o shellcode.o dexverse.o wine_tabl.o win10_tabl.o main.o dex.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o sype.o uc.o pe64.o util.o utils.o llist.o pe64_c_api.o rel_yayo.o rel_1dlsd.o xtc.o extc.o
 test_rel_objs = test_rel.o rel_1dlsd.o pe64.o util.o utils.o llist.o pe64_c_api.o rel_yayo.o pe64_c_api.o xtc.o extc.o
 test_pe64_objs = test_pe64.o pe64.o pe64.o util.o utils.o pe64_c_api.o pe64_c_api.o
 
@@ -27,16 +27,16 @@ MKDIR= mkdir
 
 TARGET = ./specimen/b.exe
 
-main.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o util.o uc.o sype.o: CFLAGS += $(UC_CFLAGS) -lunicorn
-test_rel.o rel_yayo.o rel_1dlsd.o dex.o: CFLAGS += $(X86_CFLAGS) -lx86disass $(UC_CFLAGS) -lunicorn
-
+dbgserver.o main.o wine_tabl.o win10_tabl.o razor.o ldr.o ldr_mem.o ldr_image.o ldr_env.o util.o uc.o sype.o: CFLAGS += $(UC_CFLAGS) -lunicorn
+dexverse.o test_rel.o rel_yayo.o rel_1dlsd.o dex.o: CFLAGS += $(X86_CFLAGS) -lx86disass $(UC_CFLAGS) -lunicorn
+dbgserver.o: CFLAGS += -lws2_32
 all: make_it
 	@$(MAKE) run
 
 .PHONY: make_it
 make_it: make_builddir $(objs)
 	@echo "[+] Compiling with -lunicorn -lx86disass"
-	$(GXX) $(addprefix $(BDIR)/,$(objs)) $(X86_LDFLAGS) -lx86disass $(UC_LDFLAGS) -lunicorn $(CXXFLAGS) -o a.exe
+	$(GXX) $(addprefix $(BDIR)/,$(objs)) -lws2_32 $(X86_LDFLAGS) -lx86disass $(UC_LDFLAGS) -lunicorn $(CXXFLAGS) -o a.exe
 	@echo "-----------------------------"
 	@echo ""
 

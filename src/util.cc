@@ -22,6 +22,13 @@ void Util::Blue() {
 
     SetConsoleTextAttribute(h, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 }
+void Util::Purple() {
+    HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (!HANDLE_OK(h))
+        return;
+
+    SetConsoleTextAttribute(h, FOREGROUND_RED | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+}
 void Util::White() {
     HANDLE h = GetStdHandle(STD_OUTPUT_HANDLE);
     if (!HANDLE_OK(h))
@@ -41,5 +48,5 @@ void Util::Reset() {
 }
 
 __u64 Util::hash(char *name) {
-    return (__u64)std::hash<std::string>{}(name);
-};
+    return std::hash<std::string>{}(name);
+}

@@ -1,6 +1,6 @@
 #include "../../include/syp/syscall.h"
 
-NtSyscallTableEntry win10_syscalls[] = {
+NtSyscallTableEntry win10_syscalls[WIN10_SYSCALL_COUNT] = {
     {.name = "NtAcceptConnectPort", .v = 0x2},
     {.name = "NtAccessCheck", .v = 0x0},
     {.name = "NtAccessCheckAndAuditAlarm", .v = 0x29},

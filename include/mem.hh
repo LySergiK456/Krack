@@ -40,7 +40,7 @@ struct shadow_mem_t {
         return reinterpret_cast<void *>(v);
     }
 
-    bool IsX() {
+    bool IsW() {
         return perm & PAGE_EXECUTE_READWRITE || perm & PAGE_READWRITE;
     }
 };

@@ -10,6 +10,7 @@ extern "C" {
 typedef struct _pe64_image {
     PE64 bin;
 
+    __u8                    *&pMem{bin.pMem};
     pe64_hdr_t              dos;
     pe64_hdr_t              dos_stub;
     pe64_hdr_t              nt;

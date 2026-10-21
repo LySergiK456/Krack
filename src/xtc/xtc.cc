@@ -26,15 +26,9 @@ __u64 x_t_c::xtc_insert(__u16 tabl_ndx, instr *in, __u64 off) {
             ehdr->count++;
         });
 
-        if (i & _PFX_ADDR) {
-            x.pfx.addr = (sc[pfx_len++] = 0x67);
-        }
-        if (i & _PFX_OPER) {
-            x.pfx.oper = (sc[pfx_len++] = 0x66);
-        }
-        if (i & _PFX_REX) {
-            x.pfx.rex = (sc[pfx_len++] = 0x40 | (i >> 2));
-        }
+        if (i & _PFX_ADDR)  { x.pfx.addr= (sc[pfx_len++] = 0x67); }
+        if (i & _PFX_OPER)  { x.pfx.oper= (sc[pfx_len++] = 0x66); }
+        if (i & _PFX_REX)   { x.pfx.rex = (sc[pfx_len++] = 0x40 | (i >> 2)); }
         _build_instr(&x86_64_tabl[tabl_ndx], &sc[pfx_len]);
 
         auto &insn = d.disass(sc);
@@ -44,12 +38,9 @@ __u64 x_t_c::xtc_insert(__u16 tabl_ndx, instr *in, __u64 off) {
         foreach_operand(p, &insn) {
             int t = 0;
 
-            if (p->rip || p->is_ptr)
-                t = X86_OP_PTR; // Pointer
-            else if (p->is_imm)
-                t = X86_OP_IMM; // Immediate
-            else if (p->reg)
-                t = X86_OP_REG; // Register
+            if (p->rip || p->is_ptr)t = X86_OP_PTR; // Pointer
+            else if (p->is_imm)     t = X86_OP_IMM; // Immediate
+            else if (p->reg)        t = X86_OP_REG; // Register
 
             *(reinterpret_cast<int *>(&x.op[x.op_count].t)) = t;
             x.op[x.op_count++].size = ((!!p->sz) ? p->sz : p->disp_sz);

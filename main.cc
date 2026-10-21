@@ -6,7 +6,7 @@
 #include <string.h>
 #include <unicorn/unicorn.h>
 #include <windows.h>
-// #include "./include/conf.hh"
+#include "./include/shellcode.hh"
 #include "./x86disass/disass.hpp"
 extern "C" {
 #include "./include/utils.h"

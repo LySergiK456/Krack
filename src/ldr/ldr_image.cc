@@ -128,9 +128,9 @@ uc_err Ldr::RelocateImage(std::shared_ptr<PE64_IMAGE> pe_img) {
             }
 
             if (!!v) {
-                err = uc_mem_write(uc, uc_addr, (void *)&v, sizeof(__u64));
-                if (!_uc_okay(err, ok))
-                    return err;
+                // err = uc_mem_write(uc, uc_addr, (void *)&v, sizeof(__u64));
+                // if (!_uc_okay(err, ok))
+                //     return err;
             }
         }
     }

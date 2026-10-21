@@ -1,6 +1,6 @@
 #include "../../include/syp/syscall.h"
 
-NtSyscallTableEntry wine_syscalls[] = {
+NtSyscallTableEntry wine_syscalls[WINE_SYSCALL_COUNT] = {
     {.name = "NtAcceptConnectPort", .v = 0x0},
     {.name = "NtAccessCheck", .v = 0x1},
     {.name = "NtAccessCheckAndAuditAlarm", .v = 0x2},

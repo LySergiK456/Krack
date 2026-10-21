@@ -2,14 +2,23 @@
 #include <assert.h>
 #include <windows.h>
 extern "C" {
-#include "../../include/utils.h"
+    #include "../../include/utils.h"
+    #include "../../include/syp/syscall.h"
 };
+
+__u64 _syscall_hook_NtQueryProcessInformation(uc_engine *uc, __NtArgs *args, void *user_ctx, __u64 rax) {
+    return SlitYerPE::Dex::_syscall_(args);
+}
 
 namespace SlitYerPE {
 Razor::Razor(int argc, char **argv) : ldr(argc, argv), dex{new Dex(this)} {
     uc_hook_add(ldr.uc, &insn_hook_trace, UC_HOOK_CODE, (void *)&Dex::hook_code,
                 dex, 1, 0);
 
+    __u64 virt = ldr.FindDLL("ntdll.dll")->virt;
+    DexVerse::addDexSource(dex->ctx, ldr.proc.peb_addr, sizeof(_PEB_));
+
+    Dex::syscall_hook(SyscallHook::PreHook, "NtQueryInformationProcess", (void*)_syscall_hook_NtQueryProcessInformation);
     _PEB_ *peb = reinterpret_cast<_PEB_ *>(__readgsqword(0x60));
     _PEB_LDR_DATA_ *peb_ldr = reinterpret_cast<_PEB_LDR_DATA_ *>(peb->Ldr);
     for (_LIST_ENTRY_ *l = peb_ldr->InMemoryOrderModuleList.Flink;

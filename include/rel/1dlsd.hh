@@ -40,23 +40,35 @@ using IMG_NT_HEADERS        = IMAGE_NT_HEADERS;
 using IMG_DATA_DIRECTORY    = IMAGE_DATA_DIRECTORY;
 using IMG_SECTION_HEADER    = IMAGE_SECTION_HEADER;
 
+constexpr __u64 IMG_DIR_EXPORT        = IMAGE_DIRECTORY_ENTRY_EXPORT;
+constexpr __u64 IMG_DIR_IMPORT        = IMAGE_DIRECTORY_ENTRY_IMPORT;
+constexpr __u64 IMG_DIR_RESOURCE      = IMAGE_DIRECTORY_ENTRY_RESOURCE;
+constexpr __u64 IMG_DIR_EXCEPTION     = IMAGE_DIRECTORY_ENTRY_EXCEPTION;
+constexpr __u64 IMG_DIR_SECURITY      = IMAGE_DIRECTORY_ENTRY_SECURITY;
+constexpr __u64 IMG_DIR_BASERELOC     = IMAGE_DIRECTORY_ENTRY_BASERELOC;
+constexpr __u64 IMG_DIR_DEBUG         = IMAGE_DIRECTORY_ENTRY_DEBUG;
+constexpr __u64 IMG_DIR_ARCHITECTURE  = IMAGE_DIRECTORY_ENTRY_ARCHITECTURE;
+constexpr __u64 IMG_DIR_GLOBALPTR     = IMAGE_DIRECTORY_ENTRY_GLOBALPTR;
+constexpr __u64 IMG_DIR_TLS           = IMAGE_DIRECTORY_ENTRY_TLS;
+constexpr __u64 IMG_DIR_LOAD_CONFIG   = IMAGE_DIRECTORY_ENTRY_LOAD_CONFIG;
+constexpr __u64 IMG_DIR_BOUND_IMPORT  = IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT;
+constexpr __u64 IMG_DIR_IAT           = IMAGE_DIRECTORY_ENTRY_IAT;
+constexpr __u64 IMG_DIR_DELAY_IMPORT  = IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT;
+constexpr __u64 IMG_DIR_COM_DESCRIPTOR= IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR;
+
 namespace SlitYerPE {
 struct Lyss {
+private:
+    std::vector<pe64_hdr_t*>    tofree;
+public:
     _1Dlsd          *lsd;
     pe64_image      &base_pe;
 
     std::map<__u64, struct _1Dlsd_entry>    map;
+    Lyss&           self{*this};
 
-    Lyss(_1Dlsd *l, pe64_image &_pe) : lsd{l}, base_pe{_pe} {
-        auto& pe = base_pe;
-        push(&pe, DosHdr, pe.dos);
-        push(&pe, DosStub,pe.dos_stub);
-        push(&pe, NtHdrs, pe.nt);
-
-        for (auto& sechdr : pe.sechdr)  push(&pe, SecHdr, sechdr);
-        for (auto& sec : pe.sections)   push(&pe, Section, sec);
-        initSections();
-    }
+    Lyss(_1Dlsd *l, pe64_image &_pe);
+    ~Lyss();
     Generic(T) void push(pe64_image *pe, enum _1DLSD_TYPE t, T &v) {
         map[v.off] = (struct _1Dlsd_entry){
             .t = t, .mm = &v.mm, .src = {pe, v.off, v.mm.sz}};
@@ -90,8 +102,17 @@ struct Lyss {
         return v;
     }
 
+    pe64_hdr_t *&operator<<(pe64_hdr_t&& v) {
+        auto v_ptr = new pe64_hdr_t;
+        *v_ptr = std::move(v);
+        tofree.push_back(v_ptr);
+        return tofree.back();
+    }
+
+    void AlignHeaders(__u64 off, __u64 sz);
 private:
-    void initSections();
+    void ChopSections();
+    void ChopSegments();
 };
 
 class _1Dlsd : public _1Dlsd_st {

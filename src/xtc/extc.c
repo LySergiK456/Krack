@@ -42,11 +42,9 @@ int xtc_make_insn(x_t_c_dump *x, char *mnemonic, struct xtc_oper *ops,
     target:
         do {
             struct xtc_instr *xin_ptr = xmalloc(size);
-            if (!xin_ptr)
-                return -1;
+            if (!xin_ptr) return -1;
             int ret = pread(x->f, xin_ptr, size, e->offset);
-            if (ret == -1)
-                return -1;
+            if (ret == -1) return -1;
 
             for (__u64 l = 0; l < e->count; l++) {
                 struct xtc_instr *xin = &xin_ptr[l];
@@ -57,12 +55,9 @@ int xtc_make_insn(x_t_c_dump *x, char *mnemonic, struct xtc_oper *ops,
                         goto next;
 
                 __u8 j = 0;
-                if (!!xin->pfx.addr)
-                    sc[j++] = xin->pfx.addr;
-                if (!!xin->pfx.oper)
-                    sc[j++] = xin->pfx.oper;
-                if (!!xin->pfx.rex)
-                    sc[j++] = xin->pfx.rex;
+                if (!!xin->pfx.addr)sc[j++] = xin->pfx.addr;
+                if (!!xin->pfx.oper)sc[j++] = xin->pfx.oper;
+                if (!!xin->pfx.rex) sc[j++] = xin->pfx.rex;
                 _build_instr(&x86_64_tabl[e->tabl_ndx], &sc[j]);
                 goto retn;
 
